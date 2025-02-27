@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const userRoutes = require('./src/routes/userRoutes');
+const profileRoutes = require('./src/routes/profileRoutes');
 const projectRoutes = require('./src/routes/projectRoutes');
 config();
 
@@ -27,6 +28,7 @@ connection.on('error', (err) => {
 });
 
 app.use(userRoutes);
+app.use(profileRoutes);
 app.use(projectRoutes);
 
 const server = http.createServer(app);
