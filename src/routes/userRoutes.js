@@ -4,9 +4,10 @@ const { sign } = require('jsonwebtoken');
 // const { genSalt, hash } = require('bcrypt');
 // const { createHash } = require('crypto');
 const { validateLogin } = require('../util/validators');
-
+const requireAuth = require('../middleware/requireAuth');
 const User = model('User');
 const Profile = model('Profile');
+const Project = model('Project');
 const router = Router();
 
 // Login
@@ -17,6 +18,14 @@ router.post('/login', async (req, res) => {
 
 	const { email, password } = req?.body;
 	let user;
+
+	const base = 'vervecloud.com';
+	const test = email?.split('@')[1];
+
+	// if (test !== base) {
+	// 	errors.user = 'Error, must have a valid Verve email.';
+	// 	return res.status(400).json(errors);
+	// }
 
 	try {
 		user = await User.findOne({ email }).populate('profile');
@@ -62,7 +71,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Get All Users
-router.get('/users', async (req, res) => {
+router.get('/users', requireAuth, async (req, res) => {
 	let errors = {};
 
 	try {
@@ -71,6 +80,30 @@ router.get('/users', async (req, res) => {
 		res.json(allUsers);
 	} catch (err) {
 		errors.users = 'Error retreiving users.';
+		return res.status(400).json(errors);
+	}
+});
+
+// Delete User
+router.delete('/users/:userId/delete', requireAuth, async (req, res) => {
+	let errors = {};
+
+	const { userId } = req?.params;
+
+	try {
+		const deletedProfile = await Profile.findOneAndDelete({ user: userId });
+
+		if (!deletedProfile) {
+			errors.users = 'Error, user not found!';
+			return res.status(404).json(errors);
+		}
+
+		await Project.deleteMany({ user: deletedProfile?._id });
+		await User.findByIdAndDelete(userId);
+
+		res.json({ success: 'User deleted successfully!' });
+	} catch (err) {
+		errors.users = 'Error deleting user!';
 		return res.status(400).json(errors);
 	}
 });
