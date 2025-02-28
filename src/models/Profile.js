@@ -2,6 +2,11 @@ const { Schema, model } = require('mongoose');
 
 const profileSchema = new Schema(
 	{
+		theme: {
+			type: String,
+			enum: ['light', 'dark'],
+			default: 'light',
+		},
 		firstName: {
 			type: String,
 		},
@@ -28,6 +33,18 @@ const profileSchema = new Schema(
 		},
 		appPin: {
 			type: String,
+		},
+		showForm: {
+			type: Boolean,
+			default: true,
+		},
+		showHome: {
+			type: Boolean,
+			default: true,
+		},
+		showGenerator: {
+			type: Boolean,
+			default: true,
 		},
 		user: {
 			type: Schema.Types.ObjectId,
