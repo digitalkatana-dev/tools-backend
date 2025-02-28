@@ -23,7 +23,7 @@ router.post('/login', async (req, res) => {
 	const test = email?.split('@')[1];
 
 	if (test !== base) {
-		errors.user = 'Error, must have a valid Verve email.';
+		errors.login = 'Error, must have a valid Verve email.';
 		return res.status(400).json(errors);
 	}
 
