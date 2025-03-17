@@ -1,14 +1,20 @@
 const { Router } = require('express');
 const { model } = require('mongoose');
 const { sign } = require('jsonwebtoken');
-// const { genSalt, hash } = require('bcrypt');
-// const { createHash } = require('crypto');
+const { genSalt, hash } = require('bcrypt');
+const { createHash } = require('crypto');
+const { config } = require('dotenv');
 const { validateLogin } = require('../util/validators');
+const fs = require('fs');
 const requireAuth = require('../middleware/requireAuth');
+const sgMail = require('@sendgrid/mail');
 const User = model('User');
 const Profile = model('Profile');
 const Project = model('Project');
 const router = Router();
+config();
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Login
 router.post('/login', async (req, res) => {
@@ -66,6 +72,90 @@ router.post('/login', async (req, res) => {
 	} catch (err) {
 		console.log('Signin Error: ', err);
 		errors.login = 'Something went wrong! Please try again.';
+		return res.status(400).json(errors);
+	}
+});
+
+// Generate Password Reset Token
+router.post('/users/password-token', async (req, res) => {
+	const errors = {};
+
+	const { email } = req?.body;
+
+	const user = await User.findOne({ email });
+
+	if (!user) {
+		errors.users = 'Error, user not found!';
+		return res.status(404).json(errors);
+	}
+
+	try {
+		const resetToken = user?.createPasswordResetToken();
+		await user?.save();
+
+		let resetUrl = fs.readFileSync('src/templates/reset-token.html', 'utf-8');
+		resetUrl = resetUrl.replace('{{email}}', email);
+		resetUrl = resetUrl.replace('{{resetToken}}', resetToken);
+
+		const msg = {
+			to: email,
+			from: process.env.SG_BASE_EMAIL,
+			subject: 'Reset Your Password',
+			html: resetUrl,
+		};
+
+		await sgMail.send(msg);
+		res.json(
+			`A password reset link has been sent to ${user?.email}. Follow the instructions in the email to reset your password.`
+		);
+	} catch (err) {
+		errors.users = 'Error generating token.';
+		console.log('Token error', err);
+		return res.status(400).json(errors);
+	}
+});
+
+// Password Reset
+router.post('/users/reset-password', async (req, res) => {
+	const errors = {};
+
+	const { token, password } = req?.body;
+
+	const hashedToken = createHash('sha256').update(token).digest('hex');
+	const user = await User.findOne({
+		passwordResetToken: hashedToken,
+		passwordResetTokenExpires: { $gt: new Date() },
+	});
+
+	if (!user) {
+		errors.password = 'Token expired, try again later.';
+		return res.status(400).json(errors);
+	}
+
+	try {
+		user.password = password;
+		user.passwordResetToken = undefined;
+		user.passwordResetTokenExpires = undefined;
+
+		await user?.save();
+
+		const resetSuccess = fs.readFileSync(
+			'src/templates/password-reset.html',
+			'utf-8'
+		);
+
+		const msg = {
+			to: user?.email,
+			from: process.env.SG_BASE_EMAIL,
+			subject: 'Your Password Has Been Updated',
+			html: resetSuccess,
+		};
+
+		await sgMail.send(msg);
+
+		res.json('Password upated successfully!');
+	} catch (err) {
+		errors.password = 'Error verifying token!';
 		return res.status(400).json(errors);
 	}
 });
