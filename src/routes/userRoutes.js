@@ -25,13 +25,13 @@ router.post('/login', async (req, res) => {
 	const { email, password } = req?.body;
 	let user;
 
-	// const base = 'vervecloud.com';
-	// const test = email?.split('@')[1];
+	const base = 'vervecloud.com';
+	const test = email?.split('@')[1];
 
-	// if (test !== base) {
-	// 	errors.login = 'Error, must have a valid Verve email.';
-	// 	return res.status(400).json(errors);
-	// }
+	if (test !== base) {
+		errors.login = 'Error, must have a valid Verve email.';
+		return res.status(400).json(errors);
+	}
 
 	try {
 		user = await User.findOne({ email }).populate('profile');
