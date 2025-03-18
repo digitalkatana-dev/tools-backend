@@ -4,7 +4,11 @@ const { sign } = require('jsonwebtoken');
 const { genSalt, hash } = require('bcrypt');
 const { createHash } = require('crypto');
 const { config } = require('dotenv');
-const { validateLogin } = require('../util/validators');
+const {
+	validateLogin,
+	validateForgot,
+	validateReset,
+} = require('../util/validators');
 const fs = require('fs');
 const requireAuth = require('../middleware/requireAuth');
 const sgMail = require('@sendgrid/mail');
@@ -78,7 +82,9 @@ router.post('/login', async (req, res) => {
 
 // Generate Password Reset Token
 router.post('/users/password-token', async (req, res) => {
-	const errors = {};
+	const { valid, errors } = validateForgot(req?.body);
+
+	if (!valid) return res.status(400).json(errors);
 
 	const { email } = req?.body;
 
@@ -117,7 +123,9 @@ router.post('/users/password-token', async (req, res) => {
 
 // Password Reset
 router.post('/users/reset-password', async (req, res) => {
-	const errors = {};
+	const { valid, errors } = validateReset(req?.body);
+
+	if (!valid) return res.status(400).json(errors);
 
 	const { token, password } = req?.body;
 
@@ -128,7 +136,7 @@ router.post('/users/reset-password', async (req, res) => {
 	});
 
 	if (!user) {
-		errors.password = 'Token expired, try again later.';
+		errors.token = 'Token expired, try again later.';
 		return res.status(400).json(errors);
 	}
 
@@ -155,7 +163,7 @@ router.post('/users/reset-password', async (req, res) => {
 
 		res.json('Password upated successfully!');
 	} catch (err) {
-		errors.password = 'Error verifying token!';
+		errors.token = 'Error verifying token!';
 		return res.status(400).json(errors);
 	}
 });
