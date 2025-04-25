@@ -59,3 +59,21 @@ exports.validateReset = (data) => {
 		valid: Object.keys(errors).length === 0 ? true : false,
 	};
 };
+
+exports.validateContact = (data) => {
+	let errors = {};
+
+	if (isEmpty(data?.firstName)) errors.firstName = 'Required';
+	if (isEmpty(data?.lastName)) errors.lastName = 'Required';
+	if (isEmpty(data?.email)) {
+		errors.email = 'Required';
+	} else if (!isEmail(data?.email)) {
+		errors.email = 'Must be a valid email address!';
+	}
+	if (isEmpty(data?.message)) errors.message = 'Required';
+
+	return {
+		errors,
+		valid: Object.keys(errors).length === 0 ? true : false,
+	};
+};
