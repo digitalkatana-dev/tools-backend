@@ -57,7 +57,7 @@ router.post('/electrical-interest', async (req, res) => {
 		interestNotification = interestNotification.replace('{{message}}', message);
 
 		const msg = {
-			to: 'brandon@digitalkatana.dev',
+			to: 'information@aeintegrationinc.com',
 			from: process.env.SG_BASE_EMAIL,
 			subject: 'New Request',
 			html: interestNotification,
