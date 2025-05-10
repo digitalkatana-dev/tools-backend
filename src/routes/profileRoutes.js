@@ -11,7 +11,7 @@ router.get('/profiles', requireAuth, async (req, res) => {
 	const user = req?.user?._id;
 
 	try {
-		const profile = await Profile.find({ user });
+		const profile = await Profile.findOne({ user }).populate('notes');
 
 		if (!profile) {
 			errors.profile = 'Error, profile not found';
@@ -40,7 +40,7 @@ router.put('/profiles', requireAuth, async (req, res) => {
 			{
 				new: true,
 			}
-		);
+		).populate('notes');
 
 		if (!updatedProfile) {
 			errors.profile = 'Error, profile not found';

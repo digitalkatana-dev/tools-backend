@@ -30,7 +30,9 @@ router.post('/login', async (req, res) => {
 	let user;
 
 	try {
-		user = await User.findOne({ email }).populate('profile');
+		user = await User.findOne({ email })
+			.populate('profile')
+			.populate({ path: 'profile', populate: { path: 'notes' } });
 		// .populate({ path: 'profile', populate: { path: 'projects' } });
 
 		if (user) {
@@ -60,7 +62,9 @@ router.post('/login', async (req, res) => {
 			const userProfile = new Profile(profileData);
 			await userProfile?.save();
 
-			user = await User.findOne({ email }).populate('profile');
+			user = await User.findOne({ email })
+				.populate('profile')
+				.populate({ path: 'profile', populate: { path: 'notes' } });
 			// .populate({ path: 'profile', populate: { path: 'projects' } });
 		}
 
