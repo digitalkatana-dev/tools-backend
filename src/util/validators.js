@@ -60,6 +60,19 @@ exports.validateReset = (data) => {
 	};
 };
 
+exports.validateNote = (data) => {
+	let errors = {};
+
+	if (isEmpty(data?.topic)) errors.topic = 'Must not be empty!';
+	if (isEmpty(data?.content)) errors.content = 'Must not be empty!';
+	if (isEmpty(data?.user)) errors.user = 'User is required!';
+
+	return {
+		errors,
+		valid: Object.keys(errors).length === 0 ? true : false,
+	};
+};
+
 exports.validateContact = (data) => {
 	let errors = {};
 

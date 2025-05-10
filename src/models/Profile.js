@@ -63,10 +63,10 @@ const profileSchema = new Schema(
 	}
 );
 
-// profileSchema.virtual('projects', {
-// 	ref: 'Project',
-// 	localField: '_id',
-// 	foreignField: 'user',
-// });
+profileSchema.virtual('notes', {
+	ref: 'Note',
+	localField: '_id',
+	foreignField: 'user',
+});
 
 model('Profile', profileSchema);
