@@ -50,6 +50,34 @@ router.get('/notes', requireAuth, async (req, res) => {
 });
 
 // Update Note
+router.put('/notes/:id', requireAuth, async (req, res) => {
+	let errors = {};
+
+	const { id } = req?.params;
+
+	try {
+		const updatedNote = await Note.findByIdAndUpdate(
+			id,
+			{
+				$set: req?.body,
+			},
+			{
+				new: true,
+			}
+		);
+
+		if (!updatedNote) {
+			errors.notes = 'Error, note not found!';
+			return res.status(404).json(errors);
+		}
+
+		res.json({ success: 'Note updated successfully!' });
+	} catch (err) {
+		errors.notes = 'Error updating note!';
+		console.log(err);
+		return res.status(400).json(errors);
+	}
+});
 
 // Delete Note
 router.delete('/notes/:id', requireAuth, async (req, res) => {
