@@ -35,7 +35,9 @@ router.get('/notes', requireAuth, async (req, res) => {
 	}
 
 	try {
-		const notes = await Note.find({ user: profile?._id });
+		const notes = await Note.find({
+			$or: [{ user: profile?._id }, { isPublic: true }],
+		});
 
 		if (!notes) {
 			errors.notes = 'Error, no notes found!';
