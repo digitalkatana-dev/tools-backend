@@ -2,6 +2,10 @@ const { Schema, model } = require('mongoose');
 
 const noteSchema = new Schema(
 	{
+		isPublic: {
+			type: Boolean,
+			default: false,
+		},
 		topic: {
 			type: String,
 			required: true,

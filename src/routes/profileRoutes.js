@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { model } = require('mongoose');
 const requireAuth = require('../middleware/requireAuth');
 const Profile = model('Profile');
+const Note = model('Note');
 const router = Router();
 
 // Get Profile
@@ -11,7 +12,12 @@ router.get('/profiles', requireAuth, async (req, res) => {
 	const user = req?.user?._id;
 
 	try {
-		const profile = await Profile.findOne({ user }).populate('notes');
+		const profile = await Profile.findOne({ user });
+		const notes = await Note.find({
+			$or: [{ user: profile._id }, { isPublic: true }],
+		});
+
+		profile.notes = notes;
 
 		if (!profile) {
 			errors.profile = 'Error, profile not found';
@@ -40,7 +46,13 @@ router.put('/profiles', requireAuth, async (req, res) => {
 			{
 				new: true,
 			}
-		).populate('notes');
+		);
+
+		const notes = await Note.find({
+			$or: [{ user: updatedProfile._id }, { isPublic: true }],
+		});
+
+		updatedProfile.notes = notes;
 
 		if (!updatedProfile) {
 			errors.profile = 'Error, profile not found';

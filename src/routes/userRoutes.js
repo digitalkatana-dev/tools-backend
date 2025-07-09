@@ -14,6 +14,7 @@ const requireAuth = require('../middleware/requireAuth');
 const sgMail = require('@sendgrid/mail');
 const User = model('User');
 const Profile = model('Profile');
+const Note = model('Note');
 const Project = model('Project');
 const router = Router();
 config();
@@ -30,9 +31,8 @@ router.post('/login', async (req, res) => {
 	let user;
 
 	try {
-		user = await User.findOne({ email })
-			.populate('profile')
-			.populate({ path: 'profile', populate: { path: 'notes' } });
+		user = await User.findOne({ email }).populate('profile');
+		// .populate({ path: 'profile', populate: { path: 'notes' } });
 		// .populate({ path: 'profile', populate: { path: 'projects' } });
 
 		if (user) {
@@ -62,15 +62,20 @@ router.post('/login', async (req, res) => {
 			const userProfile = new Profile(profileData);
 			await userProfile?.save();
 
-			user = await User.findOne({ email })
-				.populate('profile')
-				.populate({ path: 'profile', populate: { path: 'notes' } });
+			user = await User.findOne({ email }).populate('profile');
+			// .populate({ path: 'profile', populate: { path: 'notes' } });
 			// .populate({ path: 'profile', populate: { path: 'projects' } });
 		}
 
 		const token = sign({ userId: user?._id }, process.env.DB_SECRET_KEY, {
 			expiresIn: '10d',
 		});
+
+		const notes = await Note.find({
+			$or: [{ user: user.profile._id }, { isPublic: true }],
+		});
+
+		user.profile.notes = notes;
 
 		res.json({
 			success: 'Login successful!',
