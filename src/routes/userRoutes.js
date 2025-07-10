@@ -68,7 +68,7 @@ router.post('/login', async (req, res) => {
 		}
 
 		const token = sign({ userId: user?._id }, process.env.DB_SECRET_KEY, {
-			expiresIn: '10d',
+			expiresIn: '5d',
 		});
 
 		const notes = await Note.find({
