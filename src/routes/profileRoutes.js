@@ -15,7 +15,9 @@ router.get('/profiles', requireAuth, async (req, res) => {
 		const profile = await Profile.findOne({ user });
 		const notes = await Note.find({
 			$or: [{ user: profile._id }, { isPublic: true }],
-		});
+		})
+			.populate('user')
+			.sort('-isPublic');
 
 		profile.notes = notes;
 
@@ -50,7 +52,9 @@ router.put('/profiles', requireAuth, async (req, res) => {
 
 		const notes = await Note.find({
 			$or: [{ user: updatedProfile._id }, { isPublic: true }],
-		});
+		})
+			.populate('user')
+			.sort('-isPublic');
 
 		updatedProfile.notes = notes;
 
