@@ -32,8 +32,6 @@ router.post('/login', async (req, res) => {
 
 	try {
 		user = await User.findOne({ email }).populate('profile');
-		// .populate({ path: 'profile', populate: { path: 'notes' } });
-		// .populate({ path: 'profile', populate: { path: 'projects' } });
 
 		if (user) {
 			await user?.comparePassword(password);
@@ -63,8 +61,6 @@ router.post('/login', async (req, res) => {
 			await userProfile?.save();
 
 			user = await User.findOne({ email }).populate('profile');
-			// .populate({ path: 'profile', populate: { path: 'notes' } });
-			// .populate({ path: 'profile', populate: { path: 'projects' } });
 		}
 
 		const token = sign({ userId: user?._id }, process.env.DB_SECRET_KEY, {
@@ -73,7 +69,9 @@ router.post('/login', async (req, res) => {
 
 		const notes = await Note.find({
 			$or: [{ user: user.profile._id }, { isPublic: true }],
-		});
+		})
+			.populate('user')
+			.sort('-isPublic');
 
 		user.profile.notes = notes;
 

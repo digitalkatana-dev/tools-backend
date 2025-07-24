@@ -37,7 +37,9 @@ router.get('/notes', requireAuth, async (req, res) => {
 	try {
 		const notes = await Note.find({
 			$or: [{ user: profile?._id }, { isPublic: true }],
-		});
+		})
+			.populate('user')
+			.sort('-isPublic');
 
 		if (!notes) {
 			errors.notes = 'Error, no notes found!';
@@ -66,7 +68,9 @@ router.put('/notes/:id', requireAuth, async (req, res) => {
 			{
 				new: true,
 			}
-		);
+		)
+			.populate('user')
+			.sort('-isPublic');
 
 		if (!updatedNote) {
 			errors.notes = 'Error, note not found!';
