@@ -28,6 +28,9 @@ const profileSchema = new Schema(
 		warden: {
 			type: String,
 		},
+		msAcct: {
+			type: String,
+		},
 		windows: {
 			type: String,
 		},
@@ -60,7 +63,7 @@ const profileSchema = new Schema(
 			virtuals: true,
 		},
 		timestamps: true,
-	}
+	},
 );
 
 profileSchema.virtual('notes', {
