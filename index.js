@@ -14,6 +14,7 @@ const profileRoutes = require('./src/routes/profileRoutes');
 const projectRoutes = require('./src/routes/projectRoutes');
 const noteRoutes = require('./src/routes/noteRoutes');
 const aeRoutes = require('./src/routes/aeRoutes');
+const configRoutes = require('./src/routes/configRoutes');
 config();
 
 const app = express();
@@ -39,6 +40,7 @@ app.use(profileRoutes);
 app.use(projectRoutes);
 app.use(noteRoutes);
 app.use(aeRoutes);
+app.use(configRoutes);
 
 const server = http.createServer(app);
 
