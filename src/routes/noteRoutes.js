@@ -67,7 +67,7 @@ router.put('/notes/:id', requireAuth, async (req, res) => {
 			},
 			{
 				new: true,
-			}
+			},
 		)
 			.populate('user')
 			.sort('-isPublic');
@@ -102,7 +102,7 @@ router.delete('/notes/:id', requireAuth, async (req, res) => {
 		res.json({ success: 'Note deleted successfully!' });
 	} catch (err) {
 		errors.notes = 'Error deleting note!';
-		res.status(400).json(errors);
+		return res.status(400).json(errors);
 	}
 });
 

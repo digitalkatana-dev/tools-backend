@@ -72,4 +72,10 @@ profileSchema.virtual('notes', {
 	foreignField: 'user',
 });
 
+profileSchema.virtual('configs', {
+	ref: 'Config',
+	localField: '_id',
+	foreignField: 'user',
+});
+
 model('Profile', profileSchema);
