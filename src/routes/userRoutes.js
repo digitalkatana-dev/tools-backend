@@ -15,7 +15,7 @@ const sgMail = require('@sendgrid/mail');
 const User = model('User');
 const Profile = model('Profile');
 const Note = model('Note');
-const Project = model('Project');
+const Config = model('Config');
 const router = Router();
 config();
 
@@ -75,6 +75,12 @@ router.post('/login', async (req, res) => {
 
 		user.profile.notes = notes;
 
+		const configs = await Config.find({ user: user?.profile?._id }).sort(
+			'createdAt',
+		);
+
+		user.profile.configs = configs;
+
 		res.json({
 			success: 'Login successful!',
 			userProfile: user.profile,
@@ -119,7 +125,7 @@ router.post('/users/password-token', async (req, res) => {
 
 		await sgMail.send(msg);
 		res.json(
-			`A password reset link has been sent to ${user?.email}. Follow the instructions in the email to reset your password.`
+			`A password reset link has been sent to ${user?.email}. Follow the instructions in the email to reset your password.`,
 		);
 	} catch (err) {
 		errors.users = 'Error generating token.';
@@ -156,7 +162,7 @@ router.post('/users/reset-password', async (req, res) => {
 
 		const resetSuccess = fs.readFileSync(
 			'src/templates/password-reset.html',
-			'utf-8'
+			'utf-8',
 		);
 
 		const msg = {
@@ -203,7 +209,7 @@ router.delete('/users/:userId/delete', requireAuth, async (req, res) => {
 			return res.status(404).json(errors);
 		}
 
-		await Project.deleteMany({ user: deletedProfile?._id });
+		await Config.deleteMany({ user: deletedProfile?._id });
 		await User.findByIdAndDelete(userId);
 
 		res.json({ success: 'User deleted successfully!' });

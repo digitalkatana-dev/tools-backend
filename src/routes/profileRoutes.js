@@ -3,16 +3,23 @@ const { model } = require('mongoose');
 const requireAuth = require('../middleware/requireAuth');
 const Profile = model('Profile');
 const Note = model('Note');
+const Config = model('Config');
 const router = Router();
 
 // Get Profile
-router.get('/profiles', requireAuth, async (req, res) => {
+router.get('/profiles/:id', requireAuth, async (req, res) => {
 	let errors = {};
 
-	const user = req?.user?._id;
+	const { id } = req?.params;
 
 	try {
-		const profile = await Profile.findOne({ user });
+		const profile = await Profile.findById(id);
+
+		if (!profile) {
+			errors.profile = 'Error, profile not found';
+			return res.status(404).json(errors);
+		}
+
 		const notes = await Note.find({
 			$or: [{ user: profile._id }, { isPublic: true }],
 		})
@@ -21,10 +28,9 @@ router.get('/profiles', requireAuth, async (req, res) => {
 
 		profile.notes = notes;
 
-		if (!profile) {
-			errors.profile = 'Error, profile not found';
-			return res.status(404).json(errors);
-		}
+		const configs = await Config.find({ user: profile?._id }).sort('createdAt');
+
+		profile.configs = configs;
 
 		return res.json(profile);
 	} catch (err) {
@@ -47,7 +53,7 @@ router.put('/profiles', requireAuth, async (req, res) => {
 			},
 			{
 				new: true,
-			}
+			},
 		);
 
 		const notes = await Note.find({
