@@ -117,11 +117,9 @@ const configSchema = new Schema(
 		},
 		dnsP: {
 			type: String,
-			required: [true, 'Primary DNS is required.'],
 		},
 		dnsS: {
 			type: String,
-			required: [true, 'Secondary DNS is required.'],
 		},
 		tpLink: {
 			type: String,
