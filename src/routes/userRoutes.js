@@ -36,20 +36,11 @@ router.post('/login', async (req, res) => {
 		if (user) {
 			await user?.comparePassword(password);
 		} else {
-			const approvedEmails = [
-				'bbenoit@vervecloud.com',
-				'mspruill@vervecloud.com',
-				'qsanders@vervecloud.com',
-				'rlu@vervecloud.com',
-				'grobyn@vervecloud.com',
-				'sazimi@vervecloud.com',
-				'dlampard@vervecloud.com',
-				'mlarochelle@vervecloud.com',
-				'jmontes@vervecloud.com',
-				'wcassis@vervecloud.com',
-			];
+			const approvedEmails = new Set(
+				process.env.APPROVED_EMAILS.split(',').map((e) => e.toLowerCase()),
+			);
 
-			if (!approvedEmails.includes(email)) {
+			if (!approvedEmails.has(email.toLowerCase())) {
 				errors.login = 'Error, must have a valid Verve email.';
 				return res.status(400).json(errors);
 			}
