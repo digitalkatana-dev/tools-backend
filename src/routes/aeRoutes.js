@@ -29,7 +29,7 @@ router.post('/electrical-interest', async (req, res) => {
 		// Format the number as (xxx) xxx-xxxx
 		const formatted = `(${cleaned.substring(0, 3)}) ${cleaned.substring(
 			3,
-			6
+			6,
 		)}-${cleaned.substring(6)}`;
 
 		return formatted;
@@ -38,27 +38,27 @@ router.post('/electrical-interest', async (req, res) => {
 	try {
 		let interestNotification = fs.readFileSync(
 			'src/templates/interest-notification.html',
-			'utf-8'
+			'utf-8',
 		);
 		interestNotification = interestNotification.replace(
 			'{{firstName}}',
-			firstName
+			firstName,
 		);
 		interestNotification = interestNotification.replace(
 			'{{lastName}}',
-			lastName
+			lastName,
 		);
 		interestNotification = interestNotification.replace('{{email}}', email);
 
 		interestNotification = interestNotification.replace(
 			'{{phone}}',
-			phone ? formattedNumber(phone) : ''
+			phone ? formattedNumber(phone) : '',
 		);
 		interestNotification = interestNotification.replace('{{message}}', message);
 
 		const msg = {
 			to: 'information@aeintegrationinc.com',
-			from: process.env.SG_BASE_EMAIL,
+			from: email,
 			subject: 'New Request',
 			html: interestNotification,
 		};
