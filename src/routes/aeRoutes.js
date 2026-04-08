@@ -58,7 +58,7 @@ router.post('/electrical-interest', async (req, res) => {
 
 		const msg = {
 			to: 'information@aeintegrationinc.com',
-			from: email,
+			from: process.env.SG_BASE_EMAIL,
 			subject: 'New Request',
 			html: interestNotification,
 		};
