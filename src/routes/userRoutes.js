@@ -1,14 +1,17 @@
 const { Router } = require('express');
 const { model } = require('mongoose');
 const { sign } = require('jsonwebtoken');
-const { genSalt, hash } = require('bcrypt');
 const { createHash } = require('crypto');
 const { config } = require('dotenv');
 const {
-	validateLogin,
-	validateForgot,
-	validateReset,
+  validateLogin,
+  validateForgot,
+  validateReset,
 } = require('../util/validators');
+const {
+  loginLimiter,
+  passwordResetLimiter,
+} = require('../middleware/rateLimit');
 const fs = require('fs');
 const requireAuth = require('../middleware/requireAuth');
 const sgMail = require('@sendgrid/mail');
@@ -22,202 +25,203 @@ config();
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Login
-router.post('/login', async (req, res) => {
-	const { valid, errors } = validateLogin(req?.body);
+router.post('/login', loginLimiter, async (req, res) => {
+  const { valid, errors } = validateLogin(req?.body);
 
-	if (!valid) return res.status(400).json(errors);
+  if (!valid) return res.status(400).json(errors);
 
-	const { email, password } = req?.body;
-	let user;
+  const { email, password } = req?.body;
+  let user;
 
-	try {
-		user = await User.findOne({ email }).populate('profile');
+  try {
+    user = await User.findOne({ email }).populate('profile');
 
-		if (user) {
-			await user?.comparePassword(password);
-		} else {
-			const approvedEmails = new Set(
-				process.env.APPROVED_EMAILS.split(',').map((e) => e.toLowerCase()),
-			);
+    if (user) {
+      await user?.comparePassword(password);
+    } else {
+      const approvedEmails = new Set(
+        process.env.APPROVED_EMAILS.split(',').map((e) => e.toLowerCase()),
+      );
 
-			if (!approvedEmails.has(email.toLowerCase())) {
-				errors.login = 'Error, must have a valid Verve email.';
-				return res.status(400).json(errors);
-			}
+      if (!approvedEmails.has(email.toLowerCase())) {
+        errors.login = 'Error, must have a valid Verve email.';
+        return res.status(400).json(errors);
+      }
 
-			const newUserData = {
-				email,
-				password,
-				role: email === 'bbenoit@vervecloud.com' ? 'admin' : 'user',
-			};
+      const newUserData = {
+        email,
+        password,
+        role: email === 'bbenoit@vervecloud.com' ? 'admin' : 'user',
+      };
 
-			const newUser = new User(newUserData);
-			await newUser?.save();
+      const newUser = new User(newUserData);
+      await newUser?.save();
 
-			const profileData = {
-				user: newUser?._id,
-			};
+      const profileData = {
+        user: newUser?._id,
+      };
 
-			const userProfile = new Profile(profileData);
-			await userProfile?.save();
+      const userProfile = new Profile(profileData);
+      await userProfile?.save();
 
-			user = await User.findOne({ email }).populate('profile');
-		}
+      user = await User.findOne({ email }).populate('profile');
+    }
 
-		const token = sign({ userId: user?._id }, process.env.DB_SECRET_KEY, {
-			expiresIn: '5d',
-		});
+    const userProfile = user.profile;
 
-		const notes = await Note.find({
-			$or: [{ user: user.profile._id }, { isPublic: true }],
-		})
-			.populate('user')
-			.sort('-isPublic');
+    const notes = await Note.find({
+      $or: [{ user: userProfile._id }, { isPublic: true }],
+    })
+      .populate('user')
+      .sort('-isPublic');
 
-		user.profile.notes = notes;
+    userProfile.notes = notes;
 
-		const configs = await Config.find({ user: user?.profile?._id }).sort(
-			'createdAt',
-		);
+    const configs = await Config.find({ user: user?.profile?._id }).sort(
+      'createdAt',
+    );
 
-		user.profile.configs = configs;
+    userProfile.configs = configs;
 
-		res.json({
-			success: 'Login successful!',
-			userProfile: user.profile,
-			token,
-		});
-	} catch (err) {
-		console.log('Signin Error: ', err);
-		errors.login = 'Something went wrong! Please try again.';
-		return res.status(400).json(errors);
-	}
+    const token = sign({ userId: user?._id }, process.env.DB_SECRET_KEY, {
+      expiresIn: '5d',
+    });
+
+    res.json({
+      success: 'Login successful!',
+      userProfile,
+      token,
+    });
+  } catch (err) {
+    console.log('Signin Error: ', err);
+    errors.login = 'Something went wrong! Please try again.';
+    return res.status(400).json(errors);
+  }
 });
 
 // Generate Password Reset Token
-router.post('/users/password-token', async (req, res) => {
-	const { valid, errors } = validateForgot(req?.body);
+router.post('/users/password-token', passwordResetLimiter, async (req, res) => {
+  const { valid, errors } = validateForgot(req?.body);
 
-	if (!valid) return res.status(400).json(errors);
+  if (!valid) return res.status(400).json(errors);
 
-	const { email } = req?.body;
+  const { email } = req?.body;
+  const genericMessage = `If an account exists for ${email}, a password reset link has been sent. Follow the instructions in the email to reset your password. The link is valid for 10 minutes.`;
 
-	const user = await User.findOne({ email });
+  try {
+    const user = await User.findOne({ email });
 
-	if (!user) {
-		errors.users = 'Error, user not found!';
-		return res.status(404).json(errors);
-	}
+    if (!user) {
+      errors.users = 'Error, user not found!';
+      return res.status(404).json(errors);
+    }
 
-	try {
-		const resetToken = user?.createPasswordResetToken();
-		await user?.save();
+    const resetToken = user?.createPasswordResetToken();
+    await user?.save();
 
-		let resetUrl = fs.readFileSync('src/templates/reset-token.html', 'utf-8');
-		resetUrl = resetUrl.replace('{{email}}', email);
-		resetUrl = resetUrl.replace('{{resetToken}}', resetToken);
+    let resetUrl = fs.readFileSync('src/templates/reset-token.html', 'utf-8');
+    resetUrl = resetUrl.replace('{{email}}', email);
+    resetUrl = resetUrl.replace('{{resetToken}}', resetToken);
 
-		const msg = {
-			to: email,
-			from: process.env.SG_BASE_EMAIL,
-			subject: 'Reset Your Password',
-			html: resetUrl,
-		};
+    const msg = {
+      to: email,
+      from: process.env.SG_BASE_EMAIL,
+      subject: 'Reset Your Password',
+      html: resetUrl,
+    };
 
-		await sgMail.send(msg);
-		res.json(
-			`A password reset link has been sent to ${user?.email}. Follow the instructions in the email to reset your password.`,
-		);
-	} catch (err) {
-		errors.users = 'Error generating token.';
-		console.log('Token error', err);
-		return res.status(400).json(errors);
-	}
+    await sgMail.send(msg);
+    res.json(genericMessage);
+  } catch (err) {
+    console.log('Password Reset Error: ', err);
+    errors.users = 'Error generating password reset token!';
+    return res.status(500).json(errors);
+  }
 });
 
 // Password Reset
 router.post('/users/reset-password', async (req, res) => {
-	const { valid, errors } = validateReset(req?.body);
+  const { valid, errors } = validateReset(req?.body);
 
-	if (!valid) return res.status(400).json(errors);
+  if (!valid) return res.status(400).json(errors);
 
-	const { token, password } = req?.body;
+  const { token, password } = req?.body;
 
-	const hashedToken = createHash('sha256').update(token).digest('hex');
-	const user = await User.findOne({
-		passwordResetToken: hashedToken,
-		passwordResetTokenExpires: { $gt: new Date() },
-	});
+  try {
+    const hashedToken = createHash('sha256').update(token).digest('hex');
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetTokenExpires: { $gt: new Date() },
+    });
 
-	if (!user) {
-		errors.token = 'Token expired, try again later.';
-		return res.status(400).json(errors);
-	}
+    if (!user) {
+      errors.token = 'Token expired, try again later.';
+      return res.status(400).json(errors);
+    }
 
-	try {
-		user.password = password;
-		user.passwordResetToken = undefined;
-		user.passwordResetTokenExpires = undefined;
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpires = undefined;
 
-		await user?.save();
+    await user?.save();
 
-		const resetSuccess = fs.readFileSync(
-			'src/templates/password-reset.html',
-			'utf-8',
-		);
+    const resetSuccess = fs.readFileSync(
+      'src/templates/password-reset.html',
+      'utf-8',
+    );
 
-		const msg = {
-			to: user?.email,
-			from: process.env.SG_BASE_EMAIL,
-			subject: 'Your Password Has Been Updated',
-			html: resetSuccess,
-		};
+    const msg = {
+      to: user?.email,
+      from: process.env.SG_BASE_EMAIL,
+      subject: 'Your Password Has Been Updated',
+      html: resetSuccess,
+    };
 
-		await sgMail.send(msg);
+    await sgMail.send(msg);
 
-		res.json('Password upated successfully!');
-	} catch (err) {
-		errors.token = 'Error verifying token!';
-		return res.status(400).json(errors);
-	}
+    res.json('Password upated successfully!');
+  } catch (err) {
+    errors.token = 'Error verifying token!';
+    return res.status(500).json(errors);
+  }
 });
 
 // Get All Users
 router.get('/users', requireAuth, async (req, res) => {
-	let errors = {};
+  let errors = {};
 
-	try {
-		const allUsers = await User.find({}).populate('profile');
+  try {
+    const allUsers = await User.find({}).populate('profile');
 
-		res.json(allUsers);
-	} catch (err) {
-		errors.users = 'Error retreiving users.';
-		return res.status(400).json(errors);
-	}
+    res.json(allUsers);
+  } catch (err) {
+    errors.users = 'Error retreiving users.';
+    return res.status(400).json(errors);
+  }
 });
 
 // Delete User
 router.delete('/users/:userId/delete', requireAuth, async (req, res) => {
-	let errors = {};
+  let errors = {};
 
-	const { userId } = req?.params;
+  const { userId } = req?.params;
 
-	try {
-		const deletedProfile = await Profile.findOneAndDelete({ user: userId });
+  try {
+    const deletedProfile = await Profile.findOneAndDelete({ user: userId });
 
-		if (!deletedProfile) {
-			errors.users = 'Error, user not found!';
-			return res.status(404).json(errors);
-		}
+    if (!deletedProfile) {
+      errors.users = 'Error, user not found!';
+      return res.status(404).json(errors);
+    }
 
-		await Config.deleteMany({ user: deletedProfile?._id });
-		await User.findByIdAndDelete(userId);
+    await Config.deleteMany({ user: deletedProfile?._id });
+    await User.findByIdAndDelete(userId);
 
-		res.json({ success: 'User deleted successfully!' });
-	} catch (err) {
-		errors.users = 'Error deleting user!';
-		return res.status(400).json(errors);
-	}
+    res.json({ success: 'User deleted successfully!' });
+  } catch (err) {
+    errors.users = 'Error deleting user!';
+    return res.status(400).json(errors);
+  }
 });
 
 module.exports = router;
